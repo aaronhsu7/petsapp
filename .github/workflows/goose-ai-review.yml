@@ -34,12 +34,14 @@ jobs:
 
       - name: Configure Goose
         run: |
-            mkdir -p /home/runner/.config/goose
-            cat <<EOF > /home/runner/.config/goose/profiles.yaml
-            GOOSE_PROVIDER: gemini
-            GOOSE_MODEL: gemini-2.5-flash-preview-04-17
+          mkdir -p ~/.config/goose
+          cat <<EOF > ~/.config/goose/config.yaml
+          default:
+            provider: gemini
+            model: gemini-2.5-flash-preview-04-17
             keyring: false
-            EOF
+          EOF
+
       - name: Run Goose Action
         uses: michaelneale/goose-fix-it-action@main
         with:
@@ -55,4 +57,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GOOSE_PROVIDER: gemini
           GOOSE_MODEL: gemini-2.5-flash-preview-04-17
-          GOOSE_CONFIG_PATH: /home/runner/.config/goose/profiles.yaml
+          GOOSE_CONFIG_PATH: /home/runner/.config/goose/config.yaml
