@@ -32,16 +32,6 @@ jobs:
           pipx install goose-ai
           pipx inject goose-ai keyrings.alt
 
-      - name: Configure Goose AI
-        run: |
-          mkdir -p ~/.config/goose
-          echo "default:
-            llm:
-              provider: gemini
-              model: gemini-pro
-            tools:
-              - developer" > ~/.config/goose/profiles.yaml
-
       - name: Run Goose Action
         uses: michaelneale/goose-fix-it-action@main
         with:
@@ -53,5 +43,5 @@ jobs:
           create_pr: 'true'
           update_pr: 'true'        
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Change this in your repo secrets
           GH_TOKEN: ${{ github.token }}
