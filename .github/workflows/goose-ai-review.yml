@@ -30,7 +30,9 @@ jobs:
             ${{ github.event.issue.title }}
             ${{ github.event.issue.body }}
             [Link to issue](${{ github.event.issue.html_url }})
-          validation: "check the vite web app installs"          
+          validation: "check the vite web app installs"  
+          create_pr: 'true'
+          update_pr: 'true'        
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # set this in your repo secrets
           GH_TOKEN: ${{ github.token }} # can change this to secrets.PAT if you want to trigger workflows
