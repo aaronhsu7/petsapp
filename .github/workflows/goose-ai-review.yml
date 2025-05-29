@@ -56,4 +56,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GH_TOKEN: ${{ github.token }}
           GOOSE_PROVIDER: gemini
-          GOOSE_CONFIG_PATH: /home/runner/.config/goose/profiles.yaml
+          GOOSE_CONFIG_PATH: /home/runner/.config/goose/profiles.yaml'
+
+      - name: Resume Goose AI session
+        run: goose session resume y5b1 --profile default
