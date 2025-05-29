@@ -38,7 +38,6 @@ jobs:
           cat <<EOF > /home/runner/.config/goose/profiles.yaml
           default:
             provider: gemini
-            model: gemini-2.5-flash-preview-04-17
             keyring: false
           EOF
 
@@ -56,5 +55,4 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GH_TOKEN: ${{ github.token }}
           GOOSE_PROVIDER: gemini
-          GOOSE_MODEL: gemini-2.5-flash-preview-04-17
           GOOSE_CONFIG_PATH: /home/runner/.config/goose/profiles.yaml
