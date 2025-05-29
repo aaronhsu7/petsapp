@@ -32,11 +32,14 @@ jobs:
           pipx install goose-ai
           pipx inject goose-ai keyrings.alt
 
-      - name: Configure Goose AI to use Gemini
+      - name: Configure Goose
         run: |
-          mkdir -p ~/.config/goose
-          echo "default_provider: gemini" > ~/.config/goose/config.yaml
-          echo "gemini_api_key: ${{ secrets.GEMINI_API_KEY }}" >> ~/.config/goose/config.yaml
+            mkdir -p ~/.config/goose
+            cat <<EOF > ~/.config/goose/config.yaml
+            GOOSE_PROVIDER: Google Gemini
+            GOOSE_MODEL: gemini-2.5-flash-preview-04-17
+            keyring: false
+            EOF
 
       - name: Run Goose Action
         uses: michaelneale/goose-fix-it-action@main
