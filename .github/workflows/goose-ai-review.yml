@@ -40,7 +40,7 @@ jobs:
             provider: google
             processor: gemini-2.0-flash
             accelerator: none
-            moderator: none
+            moderator: passive
 
       - name: Run Goose Action
         uses: michaelneale/goose-fix-it-action@main
