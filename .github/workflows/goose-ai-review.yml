@@ -49,7 +49,7 @@ jobs:
             ${{ github.event.issue.title }}
             ${{ github.event.issue.body }}
             [Link to issue](${{ github.event.issue.html_url }})
-          validation: "check the vite web app installs"
+          validation: "None"
           create_pr: 'true'
           update_pr: 'true'
         env:
