@@ -38,8 +38,6 @@ jobs:
           cat <<EOF > /home/runner/.config/goose/profiles.yaml
           default:
             provider: gemini
-            keyring: false
-          EOF
 
       - name: Run Goose Action
         uses: michaelneale/goose-fix-it-action@main
