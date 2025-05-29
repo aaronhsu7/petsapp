@@ -1,23 +1,23 @@
-# macOS system files
-.DS_Store
+# # macOS system files
+# .DS_Store
 
-# Python
-__pycache__/
-*.py[cod]
-*.so
+# # Python
+# __pycache__/
+# *.py[cod]
+# *.so
 
-# Virtual environments
-venv/
-env/
-*.env
+# # Virtual environments
+# venv/
+# env/
+# *.env
 
-# IDE files
-.vscode/
-.idea/
+# # IDE files
+# .vscode/
+# .idea/
 
-# Logs
-*.log
+# # Logs
+# *.log
 
-# Temporary files
-*.tmp
-*.swp
+# # Temporary files
+# *.tmp
+# *.swp

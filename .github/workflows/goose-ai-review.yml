@@ -1,27 +1,36 @@
-name: Gemini AI Code Review
+name: Goose Do It
 
+# trigger when there is a labelled issue, or a comment 
 on:
-  pull_request:
-    types: [opened, synchronize]
+  issues:
+    types:
+      - labeled
+  issue_comment:
+    types:
+      - created      
 
 jobs:
-  review:
+  ask-goose:
+    # this will run when an issue is labelled 'goose' or if a comment in a pull request asks for help from @goose-ai
+    if: github.event.label.name == 'goose' or ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@goose-ai') }}
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Gemini AI Code Review
-        # Note: This action does not exist yet and is a placeholder
-        uses: hypothetical/gemini-code-review-action@v1
+
+      ## Install whatever you need here as per your CI setup for your project
+
+      - name: Run Goose Action
+        uses: michaelneale/goose-fix-it-action@main
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
-        # The following is a fallback in case the action above doesn't exist
-        continue-on-error: true
-      - name: Fallback Message
-        if: failure()
-        run: |
-          echo "The Gemini AI Code Review action is not yet implemented."
-          echo "This workflow is a placeholder for future Gemini integration."
-          echo "Once a suitable action is available, update this workflow to use it."
+          task_request: |
+            ${{ github.event.issue.title }}
+            ${{ github.event.issue.body }}
+            [Link to issue](${{ github.event.issue.html_url }})
+          validation: "check the vite web app installs"          
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # set this in your repo secrets
+          GH_TOKEN: ${{ github.token }} # can change this to secrets.PAT if you want to trigger workflows
