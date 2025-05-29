@@ -37,7 +37,7 @@ jobs:
           mkdir -p /home/runner/.config/goose
           cat <<EOF > /home/runner/.config/goose/profiles.yaml
           default:
-            provider: gemini
+            provider: google
             processor: gemini-2.0-flash
             accelerator: none
             moderator: none
