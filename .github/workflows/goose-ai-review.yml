@@ -287,7 +287,7 @@ jobs:
             shell: bash
             run: |
                   set -e
-
+                  
                   # Generate repository structure info directly
                   echo "Generating repository structure info..."
                   echo -e "\n\n## Repository Structure\n" >> instructions.txt
@@ -300,7 +300,7 @@ jobs:
                   # For key frontend files, add content to instructions
                   echo -e "\n\n## Key Files Content\n" >> instructions.txt
                   
-                  # Find potential frontend files related to the feature
+                  # Find potential frontend files related to the feature - fixed syntax
                   echo "Adding key frontend files to instructions..."
                   for file in \$(find . -type f $ -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" -o -name "*.html" $ -not -path "*/node_modules/*" -not -path "*/\.*" | grep -i -E 'pet|animal|front|ui|component|page' 2>/dev/null | head -5 || echo ""); do
                         if [ -n "\$file" ]; then
@@ -322,7 +322,7 @@ jobs:
                         fi
                   done
                   
-                  # Add main App or Index files
+                  # Add main App or Index files - fixed syntax
                   echo "Adding main application files to instructions..."
                   for file in \$(find . -type f $ -name "*App*" -o -name "index.*" $ -not -path "*/node_modules/*" -not -path "*/\.*" 2>/dev/null | head -3 || echo ""); do
                         if [ -n "\$file" ]; then
@@ -339,6 +339,13 @@ jobs:
                         echo '```json' >> instructions.txt
                         cat package.json >> instructions.txt
                         echo '```' >> instructions.txt
+                  fi
+                  
+                  # Add any component directories - useful for understanding structure
+                  echo "Adding component directories..."
+                  if [ -d "src/components" ]; then
+                        echo -e "\n### Component Directory Structure:\n" >> instructions.txt
+                        find ./src/components -type f -name "*.js*" -o -name "*.ts*" | sort >> instructions.txt
                   fi
                   
                   # Add implementation instructions
