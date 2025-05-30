@@ -109,29 +109,38 @@ jobs:
             git config --global user.name "goose-ai-bot"
             git config --global user.email "goose-ai-bot@example.com"
 
+        - name: Install GitHub CLI
+          run: |
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update
+            sudo apt install gh
+
         - name: Create branch and implement changes
           env:
-            GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-            ISSUE_TITLE: \${{ github.event.issue.title }}
-            ISSUE_BODY: \${{ github.event.issue.body }}
-            ISSUE_NUMBER: \${{ github.event.issue.number }}
-            REPO: \${{ github.repository }}
-            REPO_OWNER: \${{ github.repository_owner }}
-            REPO_NAME: \${{ github.event.repository.name }}
-            BASE_BRANCH: \${{ github.event.repository.default_branch }}
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           run: |
             # Generate a slug from the issue title
-            SLUG=\$(echo "\$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
-            BRANCH_NAME="goose-ai/\$SLUG-\$(date +%s)"
+            ISSUE_TITLE="${{ github.event.issue.title }}"
+            ISSUE_BODY="${{ github.event.issue.body }}"
+            ISSUE_NUMBER="${{ github.event.issue.number }}"
+            REPO="${{ github.repository }}"
+            REPO_OWNER="${{ github.repository_owner }}"
+            REPO_NAME="${{ github.event.repository.name }}"
+            BASE_BRANCH="${{ github.event.repository.default_branch }}"
+            
+            # Create a clean slug
+            SLUG=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+            BRANCH_NAME="goose-ai/$SLUG-$(date +%s)"
             
             # Create and checkout the branch
-            git checkout -b "\$BRANCH_NAME"
+            git checkout -b "$BRANCH_NAME"
             
             # Install Goose CLI
             mkdir -p /home/runner/.local/bin
             curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh \
             | CONFIGURE=false INSTALL_PATH=/home/runner/.local/bin bash
-            echo "/home/runner/.local/bin" >> \$GITHUB_PATH
+            echo "/home/runner/.local/bin" >> $GITHUB_PATH
             
             # Configure Goose
             mkdir -p ~/.config/goose
@@ -143,16 +152,16 @@ jobs:
             
             # Create instructions file
             cat > instructions.txt << EOF
-            # Development Task: \$ISSUE_TITLE
+            # Development Task: $ISSUE_TITLE
 
             ## Task Description
-            \$ISSUE_BODY
+            $ISSUE_BODY
             
             ## Your Task
             You need to implement the feature described in the issue by modifying or creating files in this repository.
             
             ## Repository Structure
-            \$(find . -type f -not -path "*/\.*" -not -path "*/node_modules/*" | sort)
+            $(find . -type f -not -path "*/\.*" -not -path "*/node_modules/*" | sort)
             
             ## Implementation Process
             1. Analyze the repository structure to understand the codebase
@@ -160,9 +169,9 @@ jobs:
             3. Follow this precise format for file changes:
             
             FILE_PATH: path/to/file.js
-            ```
+            \`\`\`
             Complete file content goes here
-            ```
+            \`\`\`
             
             4. After listing all file changes, provide a brief summary of your implementation
             
@@ -172,84 +181,75 @@ jobs:
             # Run Goose to generate implementation details
             /home/runner/.local/bin/goose run --instructions instructions.txt > goose_output.txt
             
-            # Create a function to extract file content between markers
-            extract_file_content() {
-              local file_path=\$1
-              local content_start=\$(grep -n "FILE_PATH: \$file_path" goose_output.txt | cut -d: -f1)
-              
-              if [ -z "\$content_start" ]; then
-                return 1
-              fi
-              
-              local start_line=\$((content_start + 1))
-              local code_start=\$(tail -n +\$start_line goose_output.txt | grep -n '```' | head -n 1 | cut -d: -f1)
-              local code_start_line=\$((start_line + code_start))
-              
-              local content_after_start=\$(tail -n +\$code_start_line goose_output.txt)
-              local code_end=\$(echo "\$content_after_start" | grep -n '```' | head -n 2 | tail -n 1 | cut -d: -f1)
-              local code_end_line=\$((code_start_line + code_end - 1))
-              
-              sed -n "\$((code_start_line + 1)),\$((code_end_line - 1))p" goose_output.txt
-            }
+            # Process the output to extract file paths and content
+            echo "Processing Goose output..."
             
-            # Parse the output to extract file paths and content
-            echo "Extracting file paths from Goose output..."
-            FILE_PATHS=\$(grep -o 'FILE_PATH: [^ ]*' goose_output.txt | sed 's/FILE_PATH: //')
-            
-            # Create or update files
-            for file_path in \$FILE_PATHS; do
-              echo "Processing file: \$file_path"
-              # Make sure the directory exists
-              mkdir -p \$(dirname "\$file_path")
-              
-              # Extract the content and write to the file
-              extract_file_content "\$file_path" > "\$file_path"
-              
-              # Check if file was created/updated
-              if [ -f "\$file_path" ]; then
-                echo "Successfully created/updated \$file_path"
-              else
-                echo "Failed to create/update \$file_path"
-              fi
-            done
+            # Simple implementation using awk to extract file paths and content
+            awk '/FILE_PATH: / {
+                  # Extract the file path
+                  file_path = substr($0, 11)
+                  
+                  # Make the directory for this file
+                  system("mkdir -p $(dirname " file_path ")")
+                  
+                  # Read content between the next ``` markers
+                  in_code_block = 0
+                  content = ""
+                  
+                  while (getline) {
+                  if ($0 ~ /^```/) {
+                  if (in_code_block == 0) {
+                        in_code_block = 1
+                  } else {
+                        break
+                  }
+                  } else if (in_code_block == 1) {
+                  content = content $0 "\n"
+                  }
+                  }
+                  
+                  # Write content to file
+                  print content > file_path
+                  print "Created/Updated: " file_path
+            }' goose_output.txt
             
             # Add all changes to git
             git add .
             
             # Check if there are any changes to commit
-            if [ -n "\$(git status --porcelain)" ]; then
-              # Commit changes
-              git commit -m "Implement: \$ISSUE_TITLE" -m "Resolves #\$ISSUE_NUMBER"
-              
-              # Push changes
-              git push origin "\$BRANCH_NAME"
-              
-              # Create a pull request using GitHub CLI
-              PR_URL=\$(gh pr create \
-                --repo "\$REPO" \
-                --base "\$BASE_BRANCH" \
-                --head "\$BRANCH_NAME" \
-                --title "[\$ISSUE_NUMBER] \$ISSUE_TITLE" \
-                --body "This PR implements the feature requested in issue #\$ISSUE_NUMBER. 
+            if [ -n "$(git status --porcelain)" ]; then
+                  # Commit changes
+                  git commit -m "Implement: $ISSUE_TITLE" -m "Resolves #$ISSUE_NUMBER"
+                  
+                  # Push changes
+                  git push origin "$BRANCH_NAME"
+                  
+                  # Create a pull request using GitHub CLI
+                  PR_URL=$(gh pr create \
+                  --repo "$REPO" \
+                  --base "$BASE_BRANCH" \
+                  --head "$BRANCH_NAME" \
+                  --title "[$ISSUE_NUMBER] $ISSUE_TITLE" \
+                  --body "This PR implements the feature requested in issue #$ISSUE_NUMBER. 
 
             ## Implementation Details
-            \$(grep -v "FILE_PATH:" goose_output.txt | grep -v '```' | grep -v "starting session" | head -n 50)
+            $(grep -v "FILE_PATH:" goose_output.txt | grep -v '```' | grep -v "starting session" | head -n 50)
             " \
-              )
-              
-              # Comment on the issue with link to PR
-              gh issue comment "\$ISSUE_NUMBER" --repo "\$REPO" \
-                --body "I've implemented this feature and created a pull request: \$PR_URL
+                  )
+                  
+                  # Comment on the issue with link to PR
+                  gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
+                  --body "I've implemented this feature and created a pull request: $PR_URL
 
             ## Implementation Summary
-            \$(grep -v "FILE_PATH:" goose_output.txt | grep -v '```' | grep -v "starting session" | head -n 50)
+            $(grep -v "FILE_PATH:" goose_output.txt | grep -v '```' | grep -v "starting session" | head -n 50)
             "
-              
-              echo "Pull request created: \$PR_URL"
+                  
+                  echo "Pull request created: $PR_URL"
             else
-              echo "No changes made to commit"
-              
-              # Comment on the issue that no changes were needed
-              gh issue comment "\$ISSUE_NUMBER" --repo "\$REPO" \
-                --body "I analyzed this issue but didn't make any code changes. The feature may already exist or might require more information to implement."
+                  echo "No changes made to commit"
+                  
+                  # Comment on the issue that no changes were needed
+                  gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
+                  --body "I analyzed this issue but didn't make any code changes. The feature may already exist or might require more information to implement."
             fi
