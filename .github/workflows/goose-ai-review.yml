@@ -90,7 +90,7 @@ jobs:
             gh pr comment $PR_NUMBER --body-file pr_comment.txt
 
    ask-goose:
-      if: github.event.label.name == 'goose' || (github.event.issue.pull_request && contains(github.event.comment.body, '@goose-ai'))
+      if: github.event.label.name == 'goose'
       runs-on: ubuntu-latest
 
       steps:
@@ -99,136 +99,157 @@ jobs:
           with:
             fetch-depth: 0
 
-        - name: Install Goose CLI
+        - name: Install dependencies
           run: |
+            sudo apt-get update
+            sudo apt-get install -y jq
+
+        - name: Configure Git
+          run: |
+            git config --global user.name "goose-ai-bot"
+            git config --global user.email "goose-ai-bot@example.com"
+
+        - name: Create branch and implement changes
+          env:
+            GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+            ISSUE_TITLE: \${{ github.event.issue.title }}
+            ISSUE_BODY: \${{ github.event.issue.body }}
+            ISSUE_NUMBER: \${{ github.event.issue.number }}
+            REPO: \${{ github.repository }}
+            REPO_OWNER: \${{ github.repository_owner }}
+            REPO_NAME: \${{ github.event.repository.name }}
+            BASE_BRANCH: \${{ github.event.repository.default_branch }}
+          run: |
+            # Generate a slug from the issue title
+            SLUG=\$(echo "\$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+            BRANCH_NAME="goose-ai/\$SLUG-\$(date +%s)"
+            
+            # Create and checkout the branch
+            git checkout -b "\$BRANCH_NAME"
+            
+            # Install Goose CLI
             mkdir -p /home/runner/.local/bin
             curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh \
             | CONFIGURE=false INSTALL_PATH=/home/runner/.local/bin bash
-            echo "/home/runner/.local/bin" >> $GITHUB_PATH
-
-        - name: Configure Goose
-          run: |
+            echo "/home/runner/.local/bin" >> \$GITHUB_PATH
+            
+            # Configure Goose
             mkdir -p ~/.config/goose
             cat <<EOF > ~/.config/goose/config.yaml
             GOOSE_PROVIDER: google
             GOOSE_MODEL: gemini-2.0-flash
             keyring: false
             EOF
-
-        - name: Setup GitHub Extension for Goose
-          run: |
-            npm install -g @modelcontextprotocol/server-github
-
-            # Configure the GitHub extension
-            mkdir -p ~/.config/goose/extensions
-            cat > ~/.config/goose/extensions/github.yaml << EOF
-            type: command
-            command: npx -y @modelcontextprotocol/server-github
-            timeout: 300
-            envvars:
-              GITHUB_TOKEN: ${{ github.token }}
-            EOF
-
-        - name: Create instructions file
-          if: github.event_name == 'issues' && github.event.action == 'labeled'
-          shell: bash
-          run: |
-            # Generate a slug from the issue title
-            SLUG=$(echo "${{ github.event.issue.title }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
-
+            
+            # Create instructions file
             cat > instructions.txt << EOF
-            # Development Task: ${{ github.event.issue.title }}
+            # Development Task: \$ISSUE_TITLE
 
             ## Task Description
-            ${{ github.event.issue.body }}
-
-            ## Your Mission
-            You are an AI assistant that will implement the task described in the issue.
+            \$ISSUE_BODY
             
-            You need to:
-            1. Create a new branch based on the issue title
-            2. Modify or create the necessary files to implement the requested functionality
-            3. Commit your changes
-            4. Create a pull request
-
-            ## Repository Information
-            Owner: ${{ github.repository_owner }}
-            Repository: ${{ github.event.repository.name }}
-            Base Branch: ${{ github.event.repository.default_branch }}
+            ## Your Task
+            You need to implement the feature described in the issue by modifying or creating files in this repository.
             
-            ## Instructions
-            1. First, analyze the task to understand what needs to be implemented
-            2. Create a new branch with a descriptive name based on the issue 
-            3. Use the GitHub extension to read relevant files to understand the codebase structure
-            4. Modify or create files as needed to implement the requested functionality
-            5. Create a pull request with your changes, referencing the original issue #${{ github.event.issue.number }}
-
-            Begin by creating a new branch and exploring the repository structure.
+            ## Repository Structure
+            \$(find . -type f -not -path "*/\.*" -not -path "*/node_modules/*" | sort)
+            
+            ## Implementation Process
+            1. Analyze the repository structure to understand the codebase
+            2. For each file you want to modify, output the EXACT file path followed by the complete file content
+            3. Follow this precise format for file changes:
+            
+            FILE_PATH: path/to/file.js
+            ```
+            Complete file content goes here
+            ```
+            
+            4. After listing all file changes, provide a brief summary of your implementation
+            
+            Remember: Use the exact format for file paths and content to ensure automated processing.
             EOF
+            
+            # Run Goose to generate implementation details
+            /home/runner/.local/bin/goose run --instructions instructions.txt > goose_output.txt
+            
+            # Create a function to extract file content between markers
+            extract_file_content() {
+              local file_path=\$1
+              local content_start=\$(grep -n "FILE_PATH: \$file_path" goose_output.txt | cut -d: -f1)
+              
+              if [ -z "\$content_start" ]; then
+                return 1
+              fi
+              
+              local start_line=\$((content_start + 1))
+              local code_start=\$(tail -n +\$start_line goose_output.txt | grep -n '```' | head -n 1 | cut -d: -f1)
+              local code_start_line=\$((start_line + code_start))
+              
+              local content_after_start=\$(tail -n +\$code_start_line goose_output.txt)
+              local code_end=\$(echo "\$content_after_start" | grep -n '```' | head -n 2 | tail -n 1 | cut -d: -f1)
+              local code_end_line=\$((code_start_line + code_end - 1))
+              
+              sed -n "\$((code_start_line + 1)),\$((code_end_line - 1))p" goose_output.txt
+            }
+            
+            # Parse the output to extract file paths and content
+            echo "Extracting file paths from Goose output..."
+            FILE_PATHS=\$(grep -o 'FILE_PATH: [^ ]*' goose_output.txt | sed 's/FILE_PATH: //')
+            
+            # Create or update files
+            for file_path in \$FILE_PATHS; do
+              echo "Processing file: \$file_path"
+              # Make sure the directory exists
+              mkdir -p \$(dirname "\$file_path")
+              
+              # Extract the content and write to the file
+              extract_file_content "\$file_path" > "\$file_path"
+              
+              # Check if file was created/updated
+              if [ -f "\$file_path" ]; then
+                echo "Successfully created/updated \$file_path"
+              else
+                echo "Failed to create/update \$file_path"
+              fi
+            done
+            
+            # Add all changes to git
+            git add .
+            
+            # Check if there are any changes to commit
+            if [ -n "\$(git status --porcelain)" ]; then
+              # Commit changes
+              git commit -m "Implement: \$ISSUE_TITLE" -m "Resolves #\$ISSUE_NUMBER"
+              
+              # Push changes
+              git push origin "\$BRANCH_NAME"
+              
+              # Create a pull request using GitHub CLI
+              PR_URL=\$(gh pr create \
+                --repo "\$REPO" \
+                --base "\$BASE_BRANCH" \
+                --head "\$BRANCH_NAME" \
+                --title "[\$ISSUE_NUMBER] \$ISSUE_TITLE" \
+                --body "This PR implements the feature requested in issue #\$ISSUE_NUMBER. 
 
-        - name: Run Goose Session
-          env:
-            GITHUB_TOKEN: ${{ github.token }}
-          shell: bash
-          run: |
-            # Run Goose with the instructions file
-            goose run --instructions instructions.txt > goose_output.txt
-            
-            # Extract the implementation details
-            cat goose_output.txt > implementation_details.md
-            
-            # Comment on the issue with a summary
-            if grep -q "pull request" implementation_details.md; then
-              PR_URL=$(grep -o 'https://github.com/[^ ]*pull/[0-9]*' implementation_details.md || echo "PR created")
-              # Create the comment using GitHub CLI
-              gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "I've implemented this feature and created a pull request: $PR_URL
+            ## Implementation Details
+            \$(grep -v "FILE_PATH:" goose_output.txt | grep -v '```' | grep -v "starting session" | head -n 50)
+            " \
+              )
+              
+              # Comment on the issue with link to PR
+              gh issue comment "\$ISSUE_NUMBER" --repo "\$REPO" \
+                --body "I've implemented this feature and created a pull request: \$PR_URL
 
             ## Implementation Summary
-            $(cat implementation_details.md | grep -v "starting session" | grep -v "logging to" | tail -n 30)"
+            \$(grep -v "FILE_PATH:" goose_output.txt | grep -v '```' | grep -v "starting session" | head -n 50)
+            "
+              
+              echo "Pull request created: \$PR_URL"
             else
-              gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "I attempted to implement this feature, but encountered some issues. Please check the workflow logs for details.
-
-            ## Output
-            $(cat implementation_details.md | grep -v "starting session" | grep -v "logging to" | tail -n 30)"
+              echo "No changes made to commit"
+              
+              # Comment on the issue that no changes were needed
+              gh issue comment "\$ISSUE_NUMBER" --repo "\$REPO" \
+                --body "I analyzed this issue but didn't make any code changes. The feature may already exist or might require more information to implement."
             fi
-
-        - name: Handle PR Comment
-          if: ${{ github.event_name == 'issue_comment' && github.event.issue.pull_request != null }}
-          env:
-            GITHUB_TOKEN: ${{ github.token }}
-          shell: bash
-          run: |
-            # Extract PR number from the event
-            PR_NUMBER=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
-            
-            # Create instructions for PR comment
-            cat > pr_instructions.txt << EOF
-            # PR Feedback Task
-
-            ## PR Comment
-            ${{ github.event.comment.body }}
-
-            ## Your Mission
-            You are an AI assistant that will address the feedback in the PR comment.
-            
-            ## Repository Information
-            Owner: ${{ github.repository_owner }}
-            Repository: ${{ github.event.repository.name }}
-            PR Number: ${PR_NUMBER}
-            
-            ## Instructions
-            1. First, get the PR details to understand the context
-            2. Read the files in the PR to understand what has been changed
-            3. Analyze the feedback in the comment
-            4. Make the necessary changes to address the feedback
-            5. Commit your changes to the same branch
-            6. Comment on the PR with a summary of your changes
-
-            Begin by getting the PR details and understanding the context.
-            EOF
-            
-            # Run Goose with the PR instructions
-            goose run --instructions pr_instructions.txt > pr_response.txt
-            
-            # Create a comment on the PR with the response
-            gh pr comment $PR_NUMBER --repo ${{ github.repository }} --body "$(cat pr_response.txt | grep -v "starting session" | grep -v "logging to" | tail -n 30)"
