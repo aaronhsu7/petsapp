@@ -1,0 +1,22 @@
+You are working on a task in a CI-style environment. I need you to:
+
+1. Complete the task described below
+2. Create appropriate code changes
+3. Use proper testing to validate your solution
+4. Try multiple approaches if needed
+
+Task: Implement Pet Search Functionality in Frontend
+
+Details: **Body:**
+
+The frontend currently lacks the ability to search for pets based on various criteria (e.g., breed, age, location). This issue tracks the implementation of a search feature that allows users to easily find pets matching their preferences.
+
+**Acceptance Criteria:**
+
+*   A search bar is implemented in the frontend, allowing users to enter search terms.
+*   Users can filter search results based on criteria such as breed, age, and location (if applicable).
+*   Search results are displayed clearly and concisely.
+*   The search functionality integrates with the backend API to retrieve relevant pet data.
+*   Appropriate error handling is implemented to gracefully handle cases where no results are found or the backend API is unavailable.
+
+Validation: Test the changes to ensure they work correctly.
