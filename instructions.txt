@@ -1,0 +1,12 @@
+You are working on a task in a CI-style environment. I need you to:
+
+1. Complete the task described below
+2. Create appropriate code changes
+3. Use proper testing to validate your solution
+4. Try multiple approaches if needed
+
+Task: Test Issue
+
+Details: Test
+
+Validation: Test the changes to ensure they work correctly.
