@@ -211,8 +211,7 @@ jobs:
                     # Write the content to the file
                     with open(file_path, 'w') as f:
                         f.write(file_content)
-                    
-                    files_created.append(file_path)
+                        files_created.append(file_path)
                     print(f"Created/Updated: {file_path}")
                 
                 return files_created
@@ -269,3 +268,4 @@ jobs:
               gh issue comment "\$ISSUE_NUMBER" --repo "\$REPO" \
                 --body "I analyzed this issue but didn't make any code changes. The feature may already exist or might require more information to implement."
             fi
+            
