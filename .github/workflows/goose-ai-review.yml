@@ -281,7 +281,91 @@ jobs:
 
               Begin by exploring the files mentioned in the PR feedback.
               EOF
- 
+
+          - name: Run Goose Session
+            if: \${{ !contains(github.event.comment.body, 'goose-ai rollback') && (github.event.label.name == 'goose' || (github.event.issue.pull_request && contains(github.event.comment.body, '@goose-ai'))) }}
+            shell: bash
+            run: |
+                  set -e
+
+                  # Generate repository structure info directly
+                  echo "Generating repository structure info..."
+                  echo -e "\n\n## Repository Structure\n" >> instructions.txt
+                  echo "### Files:" >> instructions.txt
+                  find . -type f -not -path "*/\.*" -not -path "*/node_modules/*" | sort >> instructions.txt
+                  
+                  echo -e "\n### Directories:" >> instructions.txt
+                  find . -type d -not -path "*/\.*" -not -path "*/node_modules/*" -maxdepth 3 | sort >> instructions.txt
+                  
+                  # For key frontend files, add content to instructions
+                  echo -e "\n\n## Key Files Content\n" >> instructions.txt
+                  
+                  # Find potential frontend files related to the feature
+                  echo "Adding key frontend files to instructions..."
+                  for file in \$(find . -type f $ -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" -o -name "*.html" $ -not -path "*/node_modules/*" -not -path "*/\.*" | grep -i -E 'pet|animal|front|ui|component|page' 2>/dev/null | head -5 || echo ""); do
+                        if [ -n "\$file" ]; then
+                        echo -e "\n### File: \$file\n" >> instructions.txt
+                        echo '```' >> instructions.txt
+                        cat "\$file" >> instructions.txt
+                        echo '```' >> instructions.txt
+                        fi
+                  done
+                  
+                  # Add API files if they exist
+                  echo "Adding API files to instructions..."
+                  for file in \$(find . -type f -name "*.js" -not -path "*/node_modules/*" -not -path "*/\.*" | grep -i -E 'api|service|fetch|axios|request' 2>/dev/null | head -3 || echo ""); do
+                        if [ -n "\$file" ]; then
+                        echo -e "\n### API File: \$file\n" >> instructions.txt
+                        echo '```' >> instructions.txt
+                        cat "\$file" >> instructions.txt
+                        echo '```' >> instructions.txt
+                        fi
+                  done
+                  
+                  # Add main App or Index files
+                  echo "Adding main application files to instructions..."
+                  for file in \$(find . -type f $ -name "*App*" -o -name "index.*" $ -not -path "*/node_modules/*" -not -path "*/\.*" 2>/dev/null | head -3 || echo ""); do
+                        if [ -n "\$file" ]; then
+                        echo -e "\n### Main App File: \$file\n" >> instructions.txt
+                        echo '```' >> instructions.txt
+                        cat "\$file" >> instructions.txt
+                        echo '```' >> instructions.txt
+                        fi
+                  done
+                  
+                  # Add package.json to understand dependencies
+                  if [ -f "package.json" ]; then
+                        echo -e "\n### package.json\n" >> instructions.txt
+                        echo '```json' >> instructions.txt
+                        cat package.json >> instructions.txt
+                        echo '```' >> instructions.txt
+                  fi
+                  
+                  # Add implementation instructions
+                  echo -e "\n\n## Implementation Instructions\n" >> instructions.txt
+                  echo "Based on the codebase structure and files provided above, implement the search functionality with the following requirements:" >> instructions.txt
+                  echo "1. Add a search component with input field and filters for breed, age, and location" >> instructions.txt
+                  echo "2. Connect to the existing API to fetch filtered results" >> instructions.txt
+                  echo "3. Display search results in a clear, user-friendly manner" >> instructions.txt
+                  echo "4. Add proper error handling for failed API requests or no results" >> instructions.txt
+                  echo "5. Ensure the UI is responsive and matches the existing design patterns" >> instructions.txt
+                  echo "6. Describe all files you've modified or created and why" >> instructions.txt
+                  echo "7. Provide the full content of each new or modified file" >> instructions.txt
+                  
+                  # Debug - print first part of instructions
+                  echo "Content of enhanced instructions.txt (first few lines):"
+                  head -n 20 instructions.txt
+                  
+                  # Run Goose with the enhanced instructions file
+                  echo "Running Goose with enhanced instructions..."
+                  goose run --instructions instructions.txt > goose_output.txt
+                  
+                  # Display output (for debugging)
+                  echo "Goose output (last 30 lines):"
+                  tail -n 30 goose_output.txt
+                  
+                  # Save implementation details (excluding session info)
+                  grep -v "starting session" goose_output.txt | grep -v "logging to" > implementation_details.md
 
           - name: Generate branch, commit, push, and create pull request for labelled issue
             if: ${{ github.event_name == 'issues' && github.event.action == 'labeled' }}
