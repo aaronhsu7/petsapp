@@ -99,22 +99,15 @@ jobs:
           with:
             fetch-depth: 0
 
-        - name: Install dependencies
+        - name: Install GitHub CLI
           run: |
             sudo apt-get update
-            sudo apt-get install -y jq
+            sudo apt-get install -y gh
 
         - name: Configure Git
           run: |
             git config --global user.name "goose-ai-bot"
             git config --global user.email "goose-ai-bot@example.com"
-
-        - name: Install GitHub CLI
-          run: |
-            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-            echo "deb [arch=\$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            sudo apt update
-            sudo apt install gh
 
         - name: Create branch and implement changes
           env:
@@ -182,7 +175,7 @@ jobs:
             /home/runner/.local/bin/goose run --instructions instructions.txt > colored_output.txt
             
             # Remove ANSI color codes from output
-            cat colored_output.txt | sed 's/\x1b$$[0-9;]*m//g' > goose_output.txt
+            sed 's/\x1b$$[0-9;]*m//g' colored_output.txt > goose_output.txt
             
             # Create a directory for file extraction
             mkdir -p extracted_files
@@ -190,7 +183,7 @@ jobs:
             # Process the output to extract file paths and content using a more robust approach
             echo "Processing Goose output..."
             
-            # Extract file paths and content using a Python script
+            # Create a Python script to extract files
             cat > extract_files.py << 'EOF'
             import re
             import os
@@ -201,7 +194,7 @@ jobs:
                     content = f.read()
                 
                 # Extract file paths and content between triple backticks
-                file_pattern = r"FILE_PATH:\s*(.*?)\n```(?:javascript|jsx|typescript|tsx|html|css|json)?\n(.*?)```"
+                file_pattern = r"FILE_PATH:\s*(.*?)\n```(?:[a-z]*)?\n(.*?)```"
                 matches = re.findall(file_pattern, content, re.DOTALL)
                 
                 files_created = []
@@ -211,7 +204,9 @@ jobs:
                     print(f"Found file: {file_path}")
                     
                     # Create directory if it doesn't exist
-                    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                    dir_name = os.path.dirname(file_path)
+                    if dir_name:
+                        os.makedirs(dir_name, exist_ok=True)
                     
                     # Write the content to the file
                     with open(file_path, 'w') as f:
@@ -233,7 +228,7 @@ jobs:
             EOF
             
             # Run the extraction script
-            python extract_files.py goose_output.txt
+            python3 extract_files.py goose_output.txt
             
             # Add all changes to git
             git add .
@@ -255,7 +250,7 @@ jobs:
                 --body "This PR implements the feature requested in issue #\$ISSUE_NUMBER. 
 
             ## Implementation Details
-            \$(cat goose_output.txt | grep -v "FILE_PATH:" | grep -v "```" | grep -v "starting session" | head -n 50)
+            \$(grep -v "FILE_PATH:" goose_output.txt | grep -v '```' | grep -v "starting session" | head -n 50)
             ")
               
               # Comment on the issue with link to PR
@@ -263,7 +258,7 @@ jobs:
                 --body "I've implemented this feature and created a pull request: \$PR_URL
 
             ## Implementation Summary
-            \$(cat goose_output.txt | grep -v "FILE_PATH:" | grep -v "```" | grep -v "starting session" | head -n 50)
+            \$(grep -v "FILE_PATH:" goose_output.txt | grep -v '```' | grep -v "starting session" | head -n 50)
             "
               
               echo "Pull request created: \$PR_URL"
