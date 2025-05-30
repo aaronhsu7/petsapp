@@ -1,0 +1,7 @@
+$PLAN_CONTENT
+
+Here is the task to complete:
+$TASK_CONTENT
+
+Here is how to validate the changes:
+$VALIDATION_CONTENT
