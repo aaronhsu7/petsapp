@@ -177,14 +177,14 @@ jobs:
               > plan.yaml
 
         - name: Create task.txt and validation.txt
-          if: ${{ !contains(github.event.comment.body, 'goose-ai rollback') }}
+          if: ${{ !contains(github.event.comment.body, 'goose-ai rollback') }} 
           shell: bash
           run: |
             echo "${{ github.event.issue.title }}" > task.txt
             echo "${{ github.event.issue.body }}" > validation.txt
 
         - name: Run Goose Session
-          if: ${{ !contains(github.event.comment.body, 'goose-ai rollback') }}
+          if: ${{ !contains(github.event.comment.body, 'goose-ai rollback') }} && (github.event.label.name == 'goose' or ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@goose--ai')}})
           shell: bash
           env: 
             GITHUB_CONTEXT: ${{ toJson(github) }}
