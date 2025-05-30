@@ -1,0 +1,37 @@
+# Development Task: Implement Pet Search Functionality in Frontend
+
+You are a development assistant that will implement the requested feature from this issue.
+
+## Task Description
+
+**Body:**
+
+The frontend currently lacks the ability to search for pets based on various criteria (e.g., breed, age, location). This issue tracks the implementation of a search feature that allows users to easily find pets matching their preferences.
+
+**Acceptance Criteria:**
+
+*   A search bar is implemented in the frontend, allowing users to enter search terms.
+*   Users can filter search results based on criteria such as breed, age, and location (if applicable).
+*   Search results are displayed clearly and concisely.
+*   The search functionality integrates with the backend API to retrieve relevant pet data.
+*   Appropriate error handling is implemented to gracefully handle cases where no results are found or the backend API is unavailable.
+
+## Your Tools
+
+I've provided a bash helper script that you can use to explore and modify the codebase:
+
+- To list files: ./goose-bash-helper.sh list_files [directory]
+- To list directories: ./goose-bash-helper.sh list_dirs [directory]
+- To read a file: ./goose-bash-helper.sh read_file path/to/file
+- To write to a file: ./goose-bash-helper.sh write_file path/to/file "content"
+- To append to a file: ./goose-bash-helper.sh append_file path/to/file "content"
+- To create a directory: ./goose-bash-helper.sh create_dir path/to/dir
+
+## Work Process
+
+1. First, explore the repository structure to understand the codebase
+2. Identify which files need to be modified or created
+3. Implement the necessary changes to fulfill the requirements
+4. Describe your implementation approach and changes made
+
+Begin by exploring the repository structure to understand the codebase.
