@@ -196,8 +196,12 @@ jobs:
 
             # Start the Goose session
             cd "$GITHUB_WORKSPACE"
+            
+            # Install the uvx package if needed
+            npm install -g uvx
 
-            goose run -i plan.yaml --with-builtin fs
+            # Run Goose with the plan
+            goose run --text "\$(cat plan.yaml)" --with-extension "uvx mcp-server-git"
             rm -f task.txt validation.txt plan.yaml
 
         - name: Generate branch, commit, push, and create pull request for labelled issue
