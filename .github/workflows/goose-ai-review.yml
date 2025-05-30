@@ -1,6 +1,6 @@
 name: Goose
 
-on:
+on:   
    pull_request:
       types: [opened, synchronize, reopened, labeled]
    issues:
@@ -16,6 +16,7 @@ permissions:
 env:
    GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
    PR_NUMBER: ${{ github.event.pull_request.number }}
+   GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
    goose-comment:
