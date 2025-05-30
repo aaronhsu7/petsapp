@@ -1,3 +1,3 @@
 # petsapp
-this was written by goose
+Search issue fixed
 May 30
