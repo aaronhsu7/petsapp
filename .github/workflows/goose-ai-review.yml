@@ -208,7 +208,7 @@ jobs:
             # Run Goose with the plan
             cd "$GITHUB_WORKSPACE"
             pwd
-            goose run --text "\$(cat plan.txt)"
+            goose run --text "\$(cat plan.txt)" --with-extension "npx @modelcontextprotocol/server-github"
             rm -f task.txt validation.txt plan.txt
 
 
