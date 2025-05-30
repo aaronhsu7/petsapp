@@ -90,297 +90,172 @@ jobs:
             gh pr comment $PR_NUMBER --body-file pr_comment.txt
 
    ask-goose:
-      if: github.event.label.name == 'goose' or ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@goose-ai')}}
+      if: github.event.label.name == 'goose' or \${{ github.event.issue.pull_request && contains(github.event.comment.body, '@goose-ai')}}
       runs-on: ubuntu-latest
 
       steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-  
-      - name: Install Goose CLI
-        run: |
-          mkdir -p /home/runner/.local/bin
-          curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh \
-          | CONFIGURE=false INSTALL_PATH=/home/runner/.local/bin bash
-          echo "/home/runner/.local/bin" >> \$GITHUB_PATH
-  
-      - name: Configure Goose
-        run: |
-          mkdir -p ~/.config/goose
-          cat <<EOF > ~/.config/goose/config.yaml
-          GOOSE_PROVIDER: google
-          GOOSE_MODEL: gemini-2.0-flash
-          keyring: false
-          EOF
-  
-      - name: Install Bash Extension Requirements
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq curl grep find git nodejs npm
-          sudo npm install -g n
-          sudo n stable
-
-      - name: Determine and Checkout Correct Branch
-        shell: bash
-        run: |
-          # Determine if the event is a PR comment
-          if [[ "\${{ github.event_name }}" == "issue_comment" && "\$(jq -r '.issue.pull_request' "\$GITHUB_EVENT_PATH")" != "null" ]]; then
-            echo "Triggered by a comment on a PR."
-  
-            # Extract the PR number from the event payload
-            PR_NUMBER=\$(jq -r '.issue.number' "\$GITHUB_EVENT_PATH")
-            
-            # Use the GitHub API to get the PR details
-            PR_DATA=\$(curl -s -H "Authorization: token \${{ github.token }}" \
-                  "https://api.github.com/repos/\${{ github.repository }}/pulls/\$PR_NUMBER")
-            
-            # Extract the head ref (branch name)
-            PR_HEAD_REF=\$(echo "\$PR_DATA" | jq -r '.head.ref')
-            echo "PR head ref is \$PR_HEAD_REF"
-  
-            # Fetch and checkout the PR branch
-            git fetch origin "\$PR_HEAD_REF"
-            git checkout "\$PR_HEAD_REF"
-          else
-            echo "Not a PR comment event. Using the default branch."
-          fi
-  
-      - name: Create instructions for issue task with codebase access
-        if: \${{ github.event_name == 'issues' && github.event.action == 'labeled' }}
-        shell: bash
-        run: |
-          # Generate a list of repository files for context
-          echo "Analyzing repository structure..."
-          find . -type f -not -path "*/\.*" -not -path "*/node_modules/*" | sort > repo_files.txt
-          
-          # Create a map of key directories
-          echo "Key directories in the repository:" > repo_structure.txt
-          find . -type d -maxdepth 2 -not -path "*/\.*" -not -path "*/node_modules/*" >> repo_structure.txt
-          
-          cat > instructions.txt << EOF
-          # Development Task
-          
-          You are assigned to implement the following feature:
-          
-          ## Issue Title
-          \${{ github.event.issue.title }}
-          
-          ## Issue Description
-          \${{ github.event.issue.body }}
-          
-          ## Repository Structure
-          Here are the key directories in the repository:
-          \$(cat repo_structure.txt)
-          
-          ## Your Task
-          1. You have full access to the codebase in the current directory
-          2. Analyze the existing code structure to understand the application architecture
-          3. Implement the requested feature by modifying or creating necessary files
-          4. Add appropriate tests if applicable
-          5. Add documentation comments to explain your implementation
-          
-          ## Steps to complete:
-          1. First, use the bash extension to explore the codebase ('bash cat <filename>' to see file content)
-          2. Identify which files need to be modified
-          3. Make the necessary changes to implement the feature using 'bash echo "<content>" > <filename>'
-          4. Test your implementation to ensure it works correctly
-          5. Document what you've done
-          
-          When you're done, describe your changes and why you made them.
-          EOF
-  
-      - name: Create instructions for PR feedback with codebase access
-        if: \${{ github.event_name == 'issue_comment' && github.event.issue.pull_request != null && !contains(github.event.comment.body, 'goose-ai rollback') }}
-        shell: bash
-        run: |
-          # Get PR comments for context
-          PR_NUMBER=\$(jq -r '.issue.number' "\$GITHUB_EVENT_PATH")
-          PR_COMMENTS=\$(gh pr view \$PR_NUMBER --json comments -q '.comments[].body' || echo "No comments")
-          
-          # Generate a list of repository files for context
-          echo "Analyzing repository structure..."
-          find . -type f -not -path "*/\.*" -not -path "*/node_modules/*" | sort > repo_files.txt
-          
-          # Create a map of key directories
-          echo "Key directories in the repository:" > repo_structure.txt
-          find . -type d -maxdepth 2 -not -path "*/\.*" -not -path "*/node_modules/*" >> repo_structure.txt
-          
-          # List modified files in the PR
-          PR_CHANGED_FILES=\$(gh pr view \$PR_NUMBER --json files -q '.files[].path')
-          
-          cat > instructions.txt << EOF
-          # Pull Request Feedback Task
-          
-          You're working on a Pull Request and need to address feedback.
-          
-          ## Pull Request Comment
-          \${{ github.event.comment.body }}
-          
-          ## Previous Comments
-          \$PR_COMMENTS
-          
-          ## Repository Structure
-          Here are the key directories in the repository:
-          \$(cat repo_structure.txt)
-          
-          ## Files Modified in this PR
-          \$PR_CHANGED_FILES
-          
-          ## Your Task
-          1. You have full access to the codebase in the current directory
-          2. Address the feedback provided in the comment
-          3. Make necessary changes to the code
-          4. Test your changes to ensure they work
-          
-          ## Steps to complete:
-          1. First, use the bash extension to explore the codebase ('bash cat <filename>' to see file content)
-          2. Focus on the files already modified in this PR
-          3. Make the necessary changes to address the feedback using 'bash echo "<content>" > <filename>'
-          4. Test your implementation to ensure it works correctly
-          5. Document what you've done
-          
-          When you're done, describe your changes and why you made them.
-          EOF
-  
-      - name: Run Goose Session with bash extension
-        if: \${{ !contains(github.event.comment.body, 'goose-ai rollback') }} && (github.event.label.name == 'goose' or \${{ github.event.issue.pull_request && contains(github.event.comment.body, '@goose-ai')}})
-        shell: bash
-        run: |
-          set -e
-  
-          # Debug - print files
-          echo "Content of instructions.txt:"
-          head -n 20 instructions.txt
-  
-          # Create a wrapper script that allows Goose to execute bash commands
-          cat > goose_bash_wrapper.sh << 'EOF'
-          #!/bin/bash
-          # Simple wrapper to execute bash commands from Goose
-          eval "\$@"
-          EOF
-          chmod +x goose_bash_wrapper.sh
-  
-          # Run Goose with the instructions file and bash extension
-          goose run --instructions instructions.txt --with-extension "./goose_bash_wrapper.sh" > goose_output.txt
-          
-          # Display output (for debugging)
-          cat goose_output.txt
-  
-      - name: Generate branch, commit, push, and create pull request for labelled issue
-        if: \${{ github.event_name == 'issues' && github.event.action == 'labeled' }}
-        shell: bash
-        run: |
-          # Generate a slug from the issue title, replacing spaces with dashes and ensuring lowercase
-          SLUG=\$(echo "\${{ github.event.issue.title }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
-          
-          # Construct the full branch name
-          BRANCH_NAME="goose-ai/\$SLUG-\$(date +%s)"
-
-          # Check out a new branch using the dynamically generated name
-          git checkout -b \$BRANCH_NAME
-
-          # Configure git user
-          git config --global user.email "goose-ai@block.xyz"
-          git config --global user.name "goose"
-          
-          # Check if there are any changes to commit
-          if [[ -n \$(git status -s) ]]; then
-            # Add and commit changes
-            git add .
-            git commit -m "Implement: \${{ github.event.issue.title }}" -m "Resolves #\${{ github.event.issue.number }}"
-          else
-            echo "No changes were made to the codebase. Creating implementation notes file."
-            echo "# Implementation notes for \${{ github.event.issue.title }}" > implementation_notes.md
-            echo "Goose AI analyzed this issue but couldn't make concrete changes." >> implementation_notes.md
-            echo "" >> implementation_notes.md
-            echo "## Analysis" >> implementation_notes.md
-            cat goose_output.txt | grep -v "starting session" | grep -v "logging to" >> implementation_notes.md
-            git add implementation_notes.md
-            git commit -m "Analysis: \${{ github.event.issue.title }}" -m "Related to #\${{ github.event.issue.number }}"
-          fi
-
-          # Push the branch to the remote repository
-          git push origin \$BRANCH_NAME
-          
-          # Extract implementation details from Goose output
-          cat goose_output.txt | grep -v "starting session" | grep -v "logging to" > implementation_details.txt
-
-          # Create a pull request using the GitHub CLI
-          gh pr create --head \$BRANCH_NAME --title "\${{ github.event.issue.title }}" --body "Resolves issue: \${{ github.event.issue.html_url }}
-          
-          ## Implementation Details
-          \$(cat implementation_details.txt)
-          
-          ## Changes Made
-          \$(git diff --name-status HEAD~1 HEAD | awk '{print "- " \$1 " " \$2}')
-          
-          Note: You can mention @goose-ai in a comment to request changes or improvements to this pull request."
-
-      - name: Commit and Push Changes for PR Comment
-        if: \${{ github.event_name == 'issue_comment' && github.event.issue.pull_request != null && !contains(github.event.comment.body, 'goose-ai rollback') }}
-        shell: bash
-        run: |
-          # Check if there are any changes to commit
-          if [[ -n \$(git status -s) ]]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add .
-            git commit -m "Comments addressed by goose AI"
-            
-            # Push changes to the current branch (which is the PR branch)
-            git push origin HEAD
-            
-            # Extract implementation details from Goose output
-            cat goose_output.txt | grep -v "starting session" | grep -v "logging to" > response_details.txt
-            
-            # Add a comment to the PR
-            PR_NUMBER=\$(jq -r .issue.number "\$GITHUB_EVENT_PATH")
-            gh pr comment \$PR_NUMBER --body "_Changes made by goose AI based on feedback:_
-            
-            \$(cat response_details.txt)
-            
-            :bulb: **TIP:** Use \`@goose-ai rollback\` to undo these changes."
-          else
-            # No changes were made, but still provide analysis
-            PR_NUMBER=\$(jq -r .issue.number "\$GITHUB_EVENT_PATH")
-            
-            # Extract analysis from Goose output
-            cat goose_output.txt | grep -v "starting session" | grep -v "logging to" > analysis_details.txt
-            
-            # Add a comment to the PR with the analysis
-            gh pr comment \$PR_NUMBER --body "_Goose AI analyzed the feedback but didn't make changes:_
-            
-            \$(cat analysis_details.txt)"
-          fi
-
-      - name: Rollback Changes
-        if: \${{ github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(github.event.comment.body, 'goose-ai rollback') }}
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          # Find the last commit with the message "Comments addressed by goose AI"
-          COMMIT_TO_REVERT=\$(git log --grep="Comments addressed by goose AI" -n 1 --pretty=format:"%H")
-          
-          if [ -n "\$COMMIT_TO_REVERT" ]; then
-            # Revert the commit
-            git revert --no-edit \$COMMIT_TO_REVERT
-            
-            # Push the revert commit
-            git push origin HEAD
-            
-            # Add a comment to the PR
-            PR_NUMBER=\$(jq -r .issue.number "\$GITHUB_EVENT_PATH")
-            gh pr comment \$PR_NUMBER --body "Successfully reverted the last goose AI changes."
-            
-            echo "_Successfully reverted the last goose AI changes._"
-          else
-            echo "No commit found with the message 'Comments addressed by goose AI'. Nothing to revert."
-            
-            # Still inform in the PR
-            PR_NUMBER=\$(jq -r .issue.number "\$GITHUB_EVENT_PATH")
-            gh pr comment \$PR_NUMBER --body "No changes from goose AI found to revert."
-          fi
+          - name: Check out repository
+            uses: actions/checkout@v4
+            with:
+              fetch-depth: 0
+      
+          - name: Install Goose CLI
+            run: |
+              mkdir -p /home/runner/.local/bin
+              curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh \
+              | CONFIGURE=false INSTALL_PATH=/home/runner/.local/bin bash
+              echo "/home/runner/.local/bin" >> $GITHUB_PATH
+      
+          - name: Configure Goose
+            run: |
+              mkdir -p ~/.config/goose
+              cat <<EOF > ~/.config/goose/config.yaml
+              GOOSE_PROVIDER: google
+              GOOSE_MODEL: gemini-2.0-flash
+              keyring: false
+              EOF
+      
+          - name: Determine and Checkout Correct Branch
+            shell: bash
+            run: |
+              # Determine if the event is a PR comment
+              if [[ "${{ github.event_name }}" == "issue_comment" && "$(jq -r '.issue.pull_request' "$GITHUB_EVENT_PATH")" != "null" ]]; then
+                echo "Triggered by a comment on a PR."
+      
+                # Extract the PR number from the event payload
+                PR_NUMBER=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
+                
+                # Use the GitHub API to get the PR details
+                PR_DATA=$(curl -s -H "Authorization: token ${{ github.token }}" \
+                      "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER")
+                
+                # Extract the head ref (branch name)
+                PR_HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref')
+                echo "PR head ref is $PR_HEAD_REF"
+      
+                # Fetch and checkout the PR branch
+                git fetch origin "$PR_HEAD_REF"
+                git checkout "$PR_HEAD_REF"
+              else
+                echo "Not a PR comment event. Using the default branch."
+              fi
+      
+          - name: Create consolidated input for issue
+            if: ${{ github.event_name == 'issues' && github.event.action == 'labeled' }}
+            shell: bash
+            run: |
+              cat > instructions.txt << EOF
+              You are working on a task in a CI-style environment. I need you to:
+      
+              1. Complete the task described below
+              2. Create appropriate code changes
+              3. Use proper testing to validate your solution
+              4. Try multiple approaches if needed
+      
+              Task: ${{ github.event.issue.title }}
+              
+              Details: ${{ github.event.issue.body }}
+              
+              Validation: Test the changes to ensure they work correctly.
+              EOF
+      
+          - name: Create consolidated input for PR feedback
+            if: ${{ github.event_name == 'issue_comment' && github.event.issue.pull_request != null && !contains(github.event.comment.body, 'goose-ai rollback') }}
+            shell: bash
+            run: |
+              # Get PR comments for context
+              PR_NUMBER=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
+              PR_COMMENTS=$(gh pr view $PR_NUMBER --json comments -q '.comments[].body' || echo "No comments")
+              
+              cat > instructions.txt << EOF
+              You are working on a pull request in a CI-style environment. I need you to:
+      
+              1. Address the feedback in the comment below
+              2. Make appropriate code changes
+              3. Test your changes to ensure they work
+      
+              Pull Request Comment: ${{ github.event.comment.body }}
+              
+              Previous Comments:
+              $PR_COMMENTS
+              
+              Please respond with the changes you've made and how they address the feedback.
+              EOF
+      
+          - name: Run Goose Session
+            if: ${{ !contains(github.event.comment.body, 'goose-ai rollback') }} && (github.event.label.name == 'goose' or ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@goose-ai')}})
+            shell: bash
+            run: |
+              set -e
+      
+              # Debug - print files
+              echo "Content of instructions.txt:"
+              cat instructions.txt
+      
+              # Run Goose with the instructions file
+              goose run --instructions instructions.txt > goose_output.txt
+              
+              # Display output (for debugging)
+              cat goose_output.txt
+      
+          - name: Generate branch, commit, push, and create pull request for labelled issue
+            if: ${{ github.event_name == 'issues' && github.event.action == 'labeled' }}
+            shell: bash
+            run: |
+              # Generate a slug from the issue title, replacing spaces with dashes and ensuring lowercase
+              SLUG=$(echo "${{ github.event.issue.title }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+              
+              # Construct the full branch name
+              BRANCH_NAME="goose-ai/$SLUG-$(date +%s)"
+      
+              # Check out a new branch using the dynamically generated name
+              git checkout -b $BRANCH_NAME
+      
+              # Configure git user
+              git config --global user.email "goose-ai@block.xyz"
+              git config --global user.name "goose"
+      
+              # Add and commit changes
+              git add .
+              git commit -m "Changes from Goose AI" --allow-empty
+      
+              # Push the branch to the remote repository
+              git push origin $BRANCH_NAME
+      
+              # Create a pull request using the GitHub CLI
+              gh pr create --head $BRANCH_NAME --title "${{ github.event.issue.title }}" --body "Resolves issue: ${{ github.event.issue.html_url }} ${{ github.event.issue.body }}
+      
+              Note: You can mention @goose-ai in a comment to request changes or improvements to this pull request."
+      
+          - name: Commit and Push Changes for PR Comment
+            if: ${{ github.event_name == 'issue_comment' && github.event.issue.pull_request != null && !contains(github.event.comment.body, 'goose-ai rollback') }}
+            shell: bash
+            run: |
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git add .
+              git commit -m "Comments addressed by goose AI" --allow-empty
+              # Push changes to the current branch (which is the PR branch)
+              git push origin HEAD
+              
+              # Add a comment to the PR
+              PR_NUMBER=$(jq -r .issue.number "$GITHUB_EVENT_PATH")
+              gh pr comment $PR_NUMBER --body "_changes made by goose AI._ :bulb: **TIP:** Use \`@goose-ai rollback\` (no space after @) to undo these changes."
+      
+          - name: Rollback Changes
+            if: ${{ github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(github.event.comment.body, 'goose-ai rollback') }}
+            shell: bash
+            run: |
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              
+              # Find the last commit with the message "Comments addressed by goose AI"
+              COMMIT_TO_REVERT=$(git log --grep="Comments addressed by goose AI" -n 1 --pretty=format:"%H")
+              
+              if [ -n "$COMMIT_TO_REVERT" ]; then
+                # Revert the commit
+                git revert --no-edit $COMMIT_TO_REVERT
+              
+                # Push the revert commit
+                git push origin
+              fi
