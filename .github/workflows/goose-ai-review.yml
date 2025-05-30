@@ -6,7 +6,7 @@ on:
       - labeled
   issue_comment:
     types:
-      - created      
+      - created
 
 jobs:
   ask-goose:
@@ -32,15 +32,16 @@ jobs:
           pipx install goose-ai
           pipx inject goose-ai keyrings.alt
 
-      - name: Configure Goose
+      - name: Configure Goose for Bedrock
         run: |
           mkdir -p /home/runner/.config/goose
           cat <<EOF > /home/runner/.config/goose/profiles.yaml
           default:
-            provider: google
-            processor: gemini-2.0-flash
+            provider: bedrock
+            processor: "anthropic.claude-3-5-sonnet-20240620-v1:0""
             accelerator: none
             moderator: passive
+          EOF
 
       - name: Run Goose Action
         uses: michaelneale/goose-fix-it-action@main
@@ -53,10 +54,9 @@ jobs:
           create_pr: 'true'
           update_pr: 'true'
         env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }} # e.g., us-east-1
           GH_TOKEN: ${{ github.token }}
-          GOOSE_PROVIDER: gemini
-          GOOSE_CONFIG_PATH: /home/runner/.config/goose/profiles.yaml'
-
-      - name: Resume Goose AI session
-        run: goose session resume y5b1 --profile default
+          GOOSE_PROVIDER: bedrock
+          GOOSE_CONFIG_PATH: /home/runner/.config/goose/profiles.yaml

@@ -1,2 +1,2 @@
 # petsapp
-this was writte by goose
+this was written by goose
