@@ -157,7 +157,7 @@ jobs:
               "  - Try at least 3 approaches if you fail, do not just stop." \
               "  - use '&' if you need to run processes in the background as part of testing." \
               "  - Read ./task.txt for instructions on what issue(s) to do or fix, and then read ./validation.txt for how to know if the change or fix is working." \
-              > plan.yaml
+              > plan.txt
 
         - name: Create plan for PR feedback
           if: ${{ github.event_name == 'issue_comment' && github.event.issue.pull_request != null && !contains(github.event.comment.body, 'goose-ai rollback') }}
@@ -174,7 +174,7 @@ jobs:
               "  - gh cli is available, as is GITHUB_CONTEXT environment variable for context." \
               "  - iterate to satisfy the task, validating it, and trying a few approaches if first failing, ensuring to take note of comments." \
               "  - Read ./task.txt for instructions on what to address, and ./validation.txt for how to know if the change is working. Important to address recent comment history for the current pull request." \
-              > plan.yaml
+              > plan.txt
 
         - name: Create task.txt and validation.txt
           if: ${{ !contains(github.event.comment.body, 'goose-ai rollback') }} 
@@ -194,29 +194,22 @@ jobs:
             echo "Task Request: ${{ github.event.issue.title }}" > task.txt
             echo "Validation: ${{ github.event.issue.body }}" > validation.txt
 
-            # # Start the Goose session
-            # cd "$GITHUB_WORKSPACE"
-            
-            # # Install the uvx package if needed
-            # npm install -g uvx
-
-            # # Run Goose with the plan
-            # goose run --text "\$(cat plan.yaml)" --with-extension "uvx mcp-server-git"
-            # rm -f task.txt validation.txt plan.yaml
-
             # Print file contents for debugging
             echo "Content of task.txt:"
             cat task.txt
             echo "Content of validation.txt:"
             cat validation.txt
-            echo "Content of plan.yaml:"
-            cat plan.yaml
+            echo "Content of plan.txt:"
+            cat plan.txt
+            
+            # Ensure Goose Extension is installed
+            npx -y @modelcontextprotocol/server-github
 
             # Run Goose with the plan
             cd "$GITHUB_WORKSPACE"
             pwd
-            goose run --text "\$(cat plan.yaml)"
-            rm -f task.txt validation.txt plan.yaml
+            goose run --text "\$(cat plan.txt)"
+            rm -f task.txt validation.txt plan.txt
 
 
         - name: Generate branch, commit, push, and create pull request for labelled issue
