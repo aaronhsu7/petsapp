@@ -209,19 +209,23 @@ jobs:
             TASK_CONTENT=$(cat task.txt)
             VALIDATION_CONTENT=$(cat validation.txt)
             PLAN_CONTENT=$(cat plan.txt)
-
+            
+            cat > consolidated_input.txt << EOF
+            \$PLAN_CONTENT
+            
+            Here is the task to complete:
+            \$TASK_CONTENT
+            
+            Here is how to validate the changes:
+            \$VALIDATION_CONTENT
+            EOF
+            
             # Run Goose with the plan
             cd "$GITHUB_WORKSPACE"
             pwd
             
-            goose run --text"
-            \$PLAN_CONTENT
-
-            Here is the task to complete:
-            \$TASK_CONTENT
-            Here is the validation to complete:
-            \$VALIDATION_CONTENT" --with-extension "npx @modelcontextprotocol/server-github"
-
+            goose run --text "\$(cat consolidated_input.txt)" --with-extension "npx @modelcontextprotocol/server-github"
+            
             rm -f task.txt validation.txt plan.txt
 
 
