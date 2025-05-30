@@ -4,6 +4,8 @@ import './App.css';
 function App() {
   const [pets, setPets] = useState([]);
   const [newPet, setNewPet] = useState({ name: '', image: null });
+  const [searchTerm, setSearchTerm] = useState(''); // State for search term
+  const [filteredPets, setFilteredPets] = useState([]); // State for filtered pets
 
   useEffect(() => {
     fetchPets();
@@ -13,7 +15,16 @@ function App() {
     const response = await fetch('http://localhost:3000/pets');
     const data = await response.json();
     setPets(data);
+    setFilteredPets(data); // Initialize filteredPets with all pets
   };
+
+  useEffect(() => {
+    // Filter pets based on search term
+    const results = pets.filter(pet =>
+      pet.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredPets(results);
+  }, [searchTerm, pets]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,8 +75,17 @@ function App() {
         />
         <button type="submit">Add Pet 🐶🐱</button>
       </form>
+
+      {/* Search Input */}
+      <input
+        type="text"
+        placeholder="Search pets..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
+
       <div className="pet-list">
-        {pets.map(pet => (
+        {filteredPets.map(pet => (
           <div key={pet.id} className="pet-card">
             <img src={`http://localhost:3000/uploads/${pet.image}`} alt={pet.name} />
             <h3>{pet.name}</h3>
