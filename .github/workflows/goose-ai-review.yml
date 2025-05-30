@@ -1,62 +1,84 @@
-name: Goose Do It
+name: Goose
 
 on:
-  issues:
-    types:
-      - labeled
-  issue_comment:
-    types:
-      - created
+   pull_request:
+      types: [opened, synchronize, reopened, labeled]
+
+permissions:
+   contents: write
+   pull-requests: write
+   issues: write
+
+env:
+   GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+   PR_NUMBER: ${{ github.event.pull_request.number }}
 
 jobs:
-  ask-goose:
-    if: github.event.label.name == 'goose' or ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@goose-ai') }}
-    runs-on: ubuntu-latest
+   goose-comment:
+      runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
+      steps:
+        - name: Check out repository
+          uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
+        - name: Gather PR information
+          run: |
+            {
+              echo "# Files Changed"
+              gh pr view $PR_NUMBER --json files \
+              -q '.files[] | "* " + .path + " (" + (.additions|tostring) + " additions, " + (.deletions|tostring) + " deletions)"'
+              echo ""
+              echo "# Changes Summary"
+              gh pr diff $PR_NUMBER
+            } > changes.txt
 
-      - name: Install pipx
-        run: python -m pip install --user pipx
+        - name: Install Goose CLI
+          run: |
+            mkdir -p /home/runner/.local/bin
+            curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh \
+            | CONFIGURE=false INSTALL_PATH=/home/runner/.local/bin bash
+            echo "/home/runner/.local/bin" >> $GITHUB_PATH
 
-      - name: Install Goose AI
-        run: |
-          pipx install goose-ai
-          pipx inject goose-ai keyrings.alt
+        - name: Configure Goose
+          run: |
+            mkdir -p ~/.config/goose
+            cat <<EOF > ~/.config/goose/config.yaml
+            GOOSE_PROVIDER: google
+            GOOSE_MODEL: gemini-2.0-flash
+            keyring: false
+            EOF
 
-      - name: Configure Goose for Bedrock
-        run: |
-          mkdir -p /home/runner/.config/goose
-          cat <<EOF > /home/runner/.config/goose/profiles.yaml
-          default:
-            provider: bedrock
-            processor: "anthropic.claude-3-5-sonnet-20240620-v1:0""
-            accelerator: none
-            moderator: passive
-          EOF
+        - name: Create instructions for Goose
+          run: |
+            cat <<EOF > instructions.txt
+            Create a summary of the changes provided. Don't provide any session or logging details.
+            The summary for each file should be brief and structured as:
+            <filename/path (wrapped in backticks)>
+                  - dot points of changes
+            You don't need any extensions, don't mention extensions at all.
+            The changes to summarise are:
+            $(cat changes.txt)
+            EOF
 
-      - name: Run Goose Action
-        uses: michaelneale/goose-fix-it-action@main
-        with:
-          task_request: |
-            ${{ github.event.issue.title }}
-            ${{ github.event.issue.body }}
-            [Link to issue](${{ github.event.issue.html_url }})
-          validation: "None"
-          create_pr: 'true'
-          update_pr: 'true'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }} # e.g., us-east-1
-          GH_TOKEN: ${{ github.token }}
-          GOOSE_PROVIDER: bedrock
-          GOOSE_CONFIG_PATH: /home/runner/.config/goose/profiles.yaml
+        - name: Test
+          run: cat instructions.txt
+
+        - name: Run Goose and filter output
+          run: |
+            goose run --instructions instructions.txt | \
+            # Remove ANSI color codes
+            sed -E 's/\x1B\[[0-9;]*[mK]//g' | \
+            # Remove session/logging lines
+            grep -v "logging to /home/runner/.config/goose/sessions/" | \
+            grep -v "^starting session" | \
+            grep -v "^Closing session" | \
+            # Trim trailing whitespace
+            sed 's/[[:space:]]*$//' \
+            > pr_comment.txt
+
+        - name: Post comment to PR
+          run: |
+            cat -A pr_comment.txt
+            gh pr comment $PR_NUMBER --body-file pr_comment.txt
