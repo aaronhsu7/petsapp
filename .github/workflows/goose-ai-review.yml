@@ -194,16 +194,30 @@ jobs:
             echo "Task Request: ${{ github.event.issue.title }}" > task.txt
             echo "Validation: ${{ github.event.issue.body }}" > validation.txt
 
-            # Start the Goose session
-            cd "$GITHUB_WORKSPACE"
+            # # Start the Goose session
+            # cd "$GITHUB_WORKSPACE"
             
-            # Install the uvx package if needed
-            npm install -g uvx
+            # # Install the uvx package if needed
+            # npm install -g uvx
+
+            # # Run Goose with the plan
+            # goose run --text "\$(cat plan.yaml)" --with-extension "uvx mcp-server-git"
+            # rm -f task.txt validation.txt plan.yaml
+
+            # Print file contents for debugging
+            echo "Content of task.txt:"
+            cat task.txt
+            echo "Content of validation.txt:"
+            cat validation.txt
+            echo "Content of plan.yaml:"
+            cat plan.yaml
 
             # Run Goose with the plan
-            goose run --text "\$(cat plan.yaml)" --with-extension "uvx mcp-server-git"
+            cd "$\{GITHUB_WORKSPACE}"
+            goose run --text "\$(cat plan.yaml)"
             rm -f task.txt validation.txt plan.yaml
 
+            
         - name: Generate branch, commit, push, and create pull request for labelled issue
           if: ${{github.event_name == 'issues' && github.event.action == 'labeled' }}
           shell: bash
