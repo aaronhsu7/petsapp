@@ -210,7 +210,7 @@ jobs:
             echo "Content of validation.txt:"
             cat validation.txt
             echo "Content of plan.yaml:"
-            cat plan.yaml
+            #cat plan.yaml
 
             # Run Goose with the plan
             cd "$GITHUB_WORKSPACE"
