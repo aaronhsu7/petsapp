@@ -205,10 +205,23 @@ jobs:
             # Ensure Goose Extension is installed
             npx -y @modelcontextprotocol/server-github
 
+            # Read local files into the Goose plan
+            TASK_CONTENT=$(cat task.txt)
+            VALIDATION_CONTENT=$(cat validation.txt)
+            PLAN_CONTENT=$(cat plan.txt)
+
             # Run Goose with the plan
             cd "$GITHUB_WORKSPACE"
             pwd
-            goose run --text "\$(cat plan.txt)" --with-extension "npx @modelcontextprotocol/server-github"
+            
+            goose run --text"
+            \$PLAN_CONTENT
+
+            Here is the task to complete:
+            \$TASK_CONTENT
+            Here is the validation to complete:
+            \$VALIDATION_CONTENT" --with-extension "npx @modelcontextprotocol/server-github"
+
             rm -f task.txt validation.txt plan.txt
 
 
