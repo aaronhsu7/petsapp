@@ -197,7 +197,7 @@ jobs:
             # Start the Goose session
             cd "$GITHUB_WORKSPACE"
 
-            goose run -i plan.yaml
+            goose run -i plan.yaml --with-builtin fs
             rm -f task.txt validation.txt plan.yaml
 
         - name: Generate branch, commit, push, and create pull request for labelled issue
@@ -219,7 +219,7 @@ jobs:
 
             # Add and commit changes
             git add .
-            git commit -m "Changes from Goose AI"
+            git commit -m "Changes from Goose AI" --allow-empty
 
             # Push the branch to the remote repository
             git push origin $BRANCH_NAME
