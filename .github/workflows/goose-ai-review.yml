@@ -213,11 +213,12 @@ jobs:
             cat plan.yaml
 
             # Run Goose with the plan
-            cd "$\{GITHUB_WORKSPACE}"
+            cd "\$GITHUB_WORKSPACE"
+            pwd
             goose run --text "\$(cat plan.yaml)"
             rm -f task.txt validation.txt plan.yaml
 
-            
+
         - name: Generate branch, commit, push, and create pull request for labelled issue
           if: ${{github.event_name == 'issues' && github.event.action == 'labeled' }}
           shell: bash
