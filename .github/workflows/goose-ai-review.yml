@@ -281,25 +281,7 @@ jobs:
 
               Begin by exploring the files mentioned in the PR feedback.
               EOF
-
-          - name: Run Goose Session
-            if: ${{ !contains(github.event.comment.body, 'goose-ai rollback') && (github.event.label.name == 'goose' || (github.event.issue.pull_request && contains(github.event.comment.body, '@goose-ai'))) }}
-            shell: bash
-            run: |
-              set -e
-
-              # Debug - print files
-              echo "Content of instructions.txt:"
-              cat instructions.txt
-
-              # Run Goose with the instructions file and bash helper extension
-              goose run --instructions instructions.txt --with-extension "./goose-bash-helper.sh" > goose_output.txt
-
-              # Display output (for debugging)
-              cat goose_output.txt
-
-              # Save implementation details (excluding session info)
-              grep -v "starting session" goose_output.txt | grep -v "logging to" > implementation_details.md
+ 
 
           - name: Generate branch, commit, push, and create pull request for labelled issue
             if: ${{ github.event_name == 'issues' && github.event.action == 'labeled' }}
